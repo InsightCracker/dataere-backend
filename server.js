@@ -9,10 +9,11 @@ const app = express();
 
 connectDB();
 
-app.use(cors({
-  origin: process.env.CLIENT_URL || "http://localhost:5173",
-  credentials: true,
-}));
+origin: [
+  "https://www.dataxo.cfd",
+  "https://dataxo.cfd",
+  "http://localhost:5173", 
+],
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
