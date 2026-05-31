@@ -9,12 +9,16 @@ const register = async (req, res) => {
     if (!username || !email || !password) {
       return res.status(400).json({ success: false, message: "All fields are required" });
     }
+
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(409).json({ success: false, message: "Email already in use" });
     }
+
     const user = await User.create({ username, email, password });
+
     const token = generateToken(user._id);
+
     res.status(201).json({
       success: true,
       message: "Account created successfully",
@@ -51,10 +55,11 @@ const login = async (req, res) => {
 
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
-      return res.status(401).json({ success: false, message: "Invalid credentials" });
+      return res.status(401).json({ success: false, message: "Incorrect Password" });
     }
 
     const token = generateToken(user._id);
+
     res.status(200).json({
       success: true,
       message: "Login successful",
@@ -63,7 +68,7 @@ const login = async (req, res) => {
     });
   } catch (err) {
     console.error("Login error:", err);
-    res.status(500).json({ success: false, message: "Server error" });
+    res.status(500).json({ success: false, message: "An Error Occur" });
   }
 };
 
