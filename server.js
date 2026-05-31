@@ -1,8 +1,9 @@
 require("dotenv").config();
 const express = require("express");
-const cors = require("cors");
-const connectDB = require("./config/db");
-const authRoutes = require("./routes/Authroutes");
+const cors    = require("cors");
+const connectDB    = require("./config/db");
+const authRoutes   = require("./routes/authRoutes");
+const scoreRoutes  = require("./routes/scoreRoutes");
 
 const app = express();
 
@@ -15,7 +16,8 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use("/api/auth", authRoutes);
+app.use("/api/auth",   authRoutes);
+app.use("/api/scores", scoreRoutes);
 
 app.get("/api/health", (req, res) => {
   res.json({ success: true, message: "DataEre API is running 🚀" });
