@@ -1,29 +1,39 @@
 const crypto = require("crypto");
-const User = require("../models/User");
+const User   = require("../models/User");
+const Score  = require("../models/Score");
 const { generateToken } = require("../utils/jwt");
 const { sendPasswordResetEmail } = require("../emails/emailService");
 
+// ─── Register 
 const register = async (req, res) => {
   try {
     const { username, email, password } = req.body;
     if (!username || !email || !password) {
       return res.status(400).json({ success: false, message: "All fields are required" });
     }
-
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(409).json({ success: false, message: "Email already in use" });
     }
-
     const user = await User.create({ username, email, password });
 
-    const token = generateToken(user._id);
+    // Start streak on first login
+    user.updateStreak();
+    await user.save({ validateBeforeSave: false });
 
+    const token = generateToken(user._id);
     res.status(201).json({
       success: true,
       message: "Account created successfully",
       token,
-      user: { id: user._id, username: user.username, email: user.email },
+      user: {
+        id:            user._id,
+        username:      user.username,
+        email:         user.email,
+        streak:        user.streak,
+        longestStreak: user.longestStreak,
+        joinDate:      user.createdAt,
+      },
     });
   } catch (err) {
     console.error("Register error:", err);
@@ -31,47 +41,141 @@ const register = async (req, res) => {
   }
 };
 
+// ─── Login 
 const login = async (req, res) => {
   try {
     const { identifier, password } = req.body;
-
     if (!identifier || !password) {
-      return res.status(400).json({
-        success: false,
-        message: "Email/username and password are required",
-      });
+      return res.status(400).json({ success: false, message: "Email/username and password are required" });
     }
 
-    // Check if identifier looks like an email or a username
     const isEmail = identifier.includes("@");
-
     const user = await User.findOne(
       isEmail ? { email: identifier.toLowerCase() } : { username: identifier }
     ).select("+password");
 
-    if (!user) {
-      return res.status(401).json({ success: false, message: "Invalid credentials" });
-    }
+    if (!user || !(await user.comparePassword(password))) {
+    return res.status(401).json({
+      success: false,
+      message: "Invalid email or password"
+    });
+}
 
-    const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
-      return res.status(401).json({ success: false, message: "Incorrect Password" });
-    }
+    // Update streak on login
+    user.updateStreak();
+    await user.save({ validateBeforeSave: false });
 
     const token = generateToken(user._id);
-
     res.status(200).json({
       success: true,
       message: "Login successful",
       token,
-      user: { id: user._id, username: user.username, email: user.email },
+      user: {
+        id:            user._id,
+        username:      user.username,
+        email:         user.email,
+        streak:        user.streak,
+        longestStreak: user.longestStreak,
+        joinDate:      user.createdAt,
+      },
     });
   } catch (err) {
     console.error("Login error:", err);
-    res.status(500).json({ success: false, message: "An Error Occur" });
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
+// ─── Get current user profile 
+const getMe = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+    res.status(200).json({
+      success: true,
+      user: {
+        id:            user._id,
+        username:      user.username,
+        email:         user.email,
+        streak:        user.streak,
+        longestStreak: user.longestStreak,
+        joinDate:      user.createdAt,
+      },
+    });
+  } catch (err) {
+    console.error("Get me error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// ─── Update profile (name + email) 
+const updateProfile = async (req, res) => {
+  try {
+    const { username, email } = req.body;
+
+    if (!username && !email) {
+      return res.status(400).json({ success: false, message: "Nothing to update" });
+    }
+
+    // Check if new email is already taken by someone else
+    if (email && email !== req.user.email) {
+      const exists = await User.findOne({ email: email.toLowerCase() });
+      if (exists) {
+        return res.status(409).json({ success: false, message: "Email already in use" });
+      }
+    }
+
+    const updates = {};
+    if (username) updates.username = username.trim();
+    if (email)    updates.email    = email.toLowerCase().trim();
+
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      updates,
+      { new: true, runValidators: true }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      user: {
+        id:            user._id,
+        username:      user.username,
+        email:         user.email,
+        streak:        user.streak,
+        longestStreak: user.longestStreak,
+        joinDate:      user.createdAt,
+      },
+    });
+  } catch (err) {
+    console.error("Update profile error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// ─── Delete account 
+const deleteAccount = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    // Delete all scores belonging to this user
+    await Score.deleteMany({ user: userId });
+
+    // Delete the user
+    await User.findByIdAndDelete(userId);
+
+    res.status(200).json({
+      success: true,
+      message: "Account and all associated data deleted successfully",
+    });
+  } catch (err) {
+    console.error("Delete account error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// ─── Forgot password 
 const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
@@ -82,9 +186,9 @@ const forgotPassword = async (req, res) => {
     if (!user) {
       return res.status(200).json({ success: true, message: "If that email exists, a reset link has been sent" });
     }
-    const resetToken = crypto.randomBytes(32).toString("hex");
+    const resetToken  = crypto.randomBytes(32).toString("hex");
     const hashedToken = crypto.createHash("sha256").update(resetToken).digest("hex");
-    user.resetPasswordToken = hashedToken;
+    user.resetPasswordToken   = hashedToken;
     user.resetPasswordExpires = Date.now() + 60 * 60 * 1000;
     await user.save({ validateBeforeSave: false });
 
@@ -104,23 +208,24 @@ const forgotPassword = async (req, res) => {
   }
 };
 
+// ─── Reset password 
 const resetPassword = async (req, res) => {
   try {
-    const { token } = req.params;
+    const { token }    = req.params;
     const { password } = req.body;
     if (!password || password.length < 6) {
       return res.status(400).json({ success: false, message: "Password must be at least 6 characters" });
     }
     const hashedToken = crypto.createHash("sha256").update(token).digest("hex");
     const user = await User.findOne({
-      resetPasswordToken: hashedToken,
+      resetPasswordToken:   hashedToken,
       resetPasswordExpires: { $gt: Date.now() },
     });
     if (!user) {
       return res.status(400).json({ success: false, message: "Reset link is invalid or has expired" });
     }
-    user.password = password;
-    user.resetPasswordToken = null;
+    user.password             = password;
+    user.resetPasswordToken   = null;
     user.resetPasswordExpires = null;
     await user.save();
     res.status(200).json({ success: true, message: "Password reset successful. You can now log in." });
@@ -130,4 +235,4 @@ const resetPassword = async (req, res) => {
   }
 };
 
-module.exports = { register, login, forgotPassword, resetPassword };
+module.exports = { register, login, getMe, updateProfile, deleteAccount, forgotPassword, resetPassword };
