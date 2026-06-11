@@ -14,6 +14,7 @@ app.use(cors({
   origin: [
     "https://www.dataxo.cfd",
     "https://dataxo.cfd",
+    "https://dataere.vercel.app",
     "http://localhost:5173",
   ],
   credentials: true,
@@ -24,7 +25,7 @@ app.use(express.urlencoded({ extended: true }));
 
 app.use("/api/auth",   authRoutes);
 app.use("/api/scores", scoreRoutes);
-app.use("/api/dailychallenge", dailyChallengeRoutes);
+app.use("/api/dailyChallenge", dailyChallengeRoutes);
 
 app.get("/api/health", (req, res) => {
   res.json({ success: true, message: "DataEre API is running 🚀" });
