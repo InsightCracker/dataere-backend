@@ -25,7 +25,14 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ error: "No questions provided" });
     }
 
-    const saved = await DailyChallenge.create({ questions });
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+    const saved = await DailyChallenge.findOneAndUpdate(
+      { generatedAt: { $gte: since } },
+      { $setOnInsert: { questions } },
+      { upsert: true, new: true }
+    );
+
     res.json({ questions: saved.questions });
   } catch (err) {
     res.status(500).json({ error: "Failed to save questions" });
