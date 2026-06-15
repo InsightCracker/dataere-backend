@@ -19,36 +19,50 @@ const userSchema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: [true, "Password is required"],
+      required: function () {
+        return this.provider === "local";
+      },
       minlength: [6, "Password must be at least 6 characters"],
       select: false,
     },
+
+    // ── OAuth identity 
+    provider: {
+      type: String,
+      enum: ["local", "google", "github"],
+      default: "local",
+    },
+    googleId: { type: String, default: null, index: true, sparse: true },
+    githubId: { type: String, default: null, index: true, sparse: true },
+    avatar:   { type: String, default: null },
+
     resetPasswordToken:   { type: String, default: null },
     resetPasswordExpires: { type: Date,   default: null },
 
     // ── Streak tracking 
-    streak:        { type: Number, default: 0 },   // current streak in days
-    longestStreak: { type: Number, default: 0 },   // all-time best streak
-    lastLoginDate: { type: Date,   default: null }, // last day a login was recorded
+    streak:        { type: Number, default: 0 },
+    longestStreak: { type: Number, default: 0 },
+    lastLoginDate: { type: Date,   default: null },
   },
-  { timestamps: true } // createdAt = join date
+  { timestamps: true }
 );
 
-// Hash password before saving
+// Hash password before saving (skip if no password, e.g. OAuth users)
 userSchema.pre("save", async function () {
-  if (!this.isModified("password")) return;
+  if (!this.isModified("password") || !this.password) return;
   this.password = await bcrypt.hash(this.password, 12);
 });
 
 userSchema.methods.comparePassword = async function (enteredPassword) {
+  if (!this.password) return false; // OAuth-only accounts can't password-login
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
-// ── Streak logic — call this on every login 
+// ── Streak logic (unchanged) 
 userSchema.methods.updateStreak = function () {
-  const now       = new Date();
-  const today     = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // midnight today
-  const last      = this.lastLoginDate
+  const now   = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const last  = this.lastLoginDate
     ? new Date(
         this.lastLoginDate.getFullYear(),
         this.lastLoginDate.getMonth(),
@@ -57,26 +71,16 @@ userSchema.methods.updateStreak = function () {
     : null;
 
   if (!last) {
-    // First ever login
     this.streak = 1;
     this.lastLoginDate = now;
   } else {
     const diffDays = Math.round((today - last) / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) {
-      // Already logged in today — do nothing
-      return;
-    } else if (diffDays === 1) {
-      // Consecutive day — increment streak
-      this.streak += 1;
-    } else {
-      // Missed at least one day — reset streak
-      this.streak = 1;
-    }
+    if (diffDays === 0) return;
+    else if (diffDays === 1) this.streak += 1;
+    else this.streak = 1;
     this.lastLoginDate = now;
   }
 
-  // Update longest streak record
   if (this.streak > this.longestStreak) {
     this.longestStreak = this.streak;
   }
