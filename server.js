@@ -24,8 +24,9 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+app.use(passport.initialize()); 
+
 app.use("/api/auth",   authRoutes);
-app.use(passport.initialize());
 app.use("/api/scores", scoreRoutes);
 app.use("/api/dailyChallenge", dailyChallengeRoutes);
 
