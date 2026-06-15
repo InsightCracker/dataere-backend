@@ -4,6 +4,7 @@ const cors    = require("cors");
 const connectDB    = require("./config/db");
 const authRoutes   = require("./routes/authRoutes");
 const scoreRoutes  = require("./routes/scoreRoutes");
+const passport = require("./config/passport");
 const dailyChallengeRoutes = require("./routes/dailyChallengeRoutes")
 
 const app = express();
@@ -24,6 +25,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 app.use("/api/auth",   authRoutes);
+app.use(passport.initialize());
 app.use("/api/scores", scoreRoutes);
 app.use("/api/dailyChallenge", dailyChallengeRoutes);
 
