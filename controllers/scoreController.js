@@ -105,6 +105,20 @@ const getLeaderboard = async (req, res) => {
           totalCorrect: { $sum: "$score" },
         },
       },
+      
+      {
+        $lookup: {
+          from: "users",
+          localField: "_id",
+          foreignField: "_id",
+          as: "userInfo",
+        },
+      },
+      { $unwind: "$userInfo" },
+      
+      // Exclude users who opted out of the public leaderboard. Default to
+      // showing users where isPublic was never set (legacy accounts).
+      { $match: { "userInfo.isPublic": { $ne: false } } },
       {
         $project: {
           username:     1,
