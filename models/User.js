@@ -43,6 +43,10 @@ const userSchema = new mongoose.Schema(
     streak:        { type: Number, default: 0 },
     longestStreak: { type: Number, default: 0 },
     lastLoginDate: { type: Date,   default: null },
+
+    // ── Privacy 
+    // Whether this user's username/scores appear on the public leaderboard.
+    isPublic: { type: Boolean, default: true },
   },
   { timestamps: true }
 );
