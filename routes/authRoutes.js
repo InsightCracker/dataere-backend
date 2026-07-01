@@ -8,6 +8,14 @@ const {
 } = require("../controllers/authController");
 const { protect } = require("../middleware/authMiddleware");
 
+function oauthCallbackHandler(req, res) {
+  const user = req.user;
+  user.updateStreak();
+  user.save({ validateBeforeSave: false });
+  const token = generateToken(user._id);
+  res.redirect(`${process.env.CLIENT_URL}/users/oauth/callback?token=${token}`);
+}
+
 router.post("/register", register);
 router.post("/login", login);
 router.get("/me", protect, getMe);
@@ -18,13 +26,10 @@ router.post("/forgot-password", forgotPassword);
 router.post("/reset-password/:token", resetPassword);
 
 // ── Google OAuth 
-router.get(
-  "/google",
+router.get("/google",
   passport.authenticate("google", { scope: ["profile", "email"], session: false })
 );
-
-router.get(
-  "/google/callback",
+router.get("/google/callback",
   passport.authenticate("google", {
     session: false,
     failureRedirect: `${process.env.CLIENT_URL}/users/login?error=oauth_failed`,
@@ -33,13 +38,10 @@ router.get(
 );
 
 // ── GitHub OAuth 
-router.get(
-  "/github",
+router.get("/github",
   passport.authenticate("github", { scope: ["user:email"], session: false })
 );
-
-router.get(
-  "/github/callback",
+router.get("/github/callback",
   passport.authenticate("github", {
     session: false,
     failureRedirect: `${process.env.CLIENT_URL}/users/login?error=oauth_failed`,
@@ -47,14 +49,32 @@ router.get(
   oauthCallbackHandler
 );
 
-// Shared handler: issue a JWT and bounce back to the frontend with it
-function oauthCallbackHandler(req, res) {
-  const user = req.user;
-  user.updateStreak();
-  user.save({ validateBeforeSave: false });
+router.put("/privacy", protect, async (req, res) => {
+  try {
+    const { isPublic } = req.body;
 
-  const token = generateToken(user._id);
-  res.redirect(`${process.env.CLIENT_URL}/users/oauth/callback?token=${token}`);
-}
+    if (typeof isPublic !== "boolean") {
+      return res.status(400).json({
+        success: false,
+        message: "isPublic must be true or false",
+      });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { isPublic },
+      { new: true, runValidators: true }
+    ).select("-password");
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    res.json({ success: true, user });
+  } catch (err) {
+    console.error("Update privacy error:", err);
+    res.status(500).json({ success: false, message: "Failed to update privacy setting" });
+  }
+});
 
 module.exports = router;
