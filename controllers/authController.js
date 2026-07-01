@@ -27,13 +27,14 @@ const register = async (req, res) => {
       message: "Account created successfully",
       token,
       user: {
-        id:            user._id,
-        username:      user.username,
-        email:         user.email,
-        streak:        user.streak,
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        streak: user.streak,
         longestStreak: user.longestStreak,
-        joinDate:      user.createdAt,
-        isPublic:      user.isPublic,
+        joinDate: user.createdAt,
+        isPublic: user.isPublic,
+        notificationPrefs: user.notificationPrefs, 
       },
     });
   } catch (err) {
@@ -72,13 +73,14 @@ const login = async (req, res) => {
       message: "Login successful",
       token,
       user: {
-        id:            user._id,
-        username:      user.username,
-        email:         user.email,
-        streak:        user.streak,
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        streak: user.streak,
         longestStreak: user.longestStreak,
-        joinDate:      user.createdAt,
-        isPublic:      user.isPublic,
+        joinDate: user.createdAt,
+        isPublic: user.isPublic,
+        notificationPrefs: user.notificationPrefs, 
       },
     });
   } catch (err) {
@@ -97,13 +99,14 @@ const getMe = async (req, res) => {
     res.status(200).json({
       success: true,
       user: {
-        id:            user._id,
-        username:      user.username,
-        email:         user.email,
-        streak:        user.streak,
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        streak: user.streak,
         longestStreak: user.longestStreak,
-        joinDate:      user.createdAt,
-        isPublic:      user.isPublic,
+        joinDate: user.createdAt,
+        isPublic: user.isPublic,
+        notificationPrefs: user.notificationPrefs, 
       },
     });
   } catch (err) {
@@ -143,13 +146,14 @@ const updateProfile = async (req, res) => {
       success: true,
       message: "Profile updated successfully",
       user: {
-        id:            user._id,
-        username:      user.username,
-        email:         user.email,
-        streak:        user.streak,
+        id: user._id,
+        username: user.username,
+        email: user.email,
+        streak: user.streak,
         longestStreak: user.longestStreak,
-        joinDate:      user.createdAt,
-        isPublic:      user.isPublic,
+        joinDate: user.createdAt,
+        isPublic: user.isPublic,
+        notificationPrefs: user.notificationPrefs, 
       },
     });
   } catch (err) {

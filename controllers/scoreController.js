@@ -1,12 +1,13 @@
 const Score = require("../models/Score");
+const User  = require("../models/User");
 
-// ─── Save a score
 const saveScore = async (req, res) => {
   try {
     const { topic, score, total, wrong, skipped, mode } = req.body;
     if (score === undefined || !total || !topic) {
       return res.status(400).json({ success: false, message: "Missing required fields" });
     }
+
     const percentage = Math.round((score / total) * 100);
     const newScore = await Score.create({
       user:     req.user._id,
@@ -19,14 +20,49 @@ const saveScore = async (req, res) => {
       percentage,
       mode:     mode ?? "solo",
     });
-    res.status(201).json({ success: true, data: newScore });
+
+    // ── Mark user active for daily reminder cron ──────────────────────
+    const user = await User.findById(req.user._id);
+    user.markActive();
+    user.updateStreak();
+    await user.save();
+
+    // ── Calculate rank change for leaderboard notification ────────────
+    let rankData = null;
+    if (user.notificationPrefs?.leaderboardUpdates && user.isPublic) {
+      rankData = await getRankChange(req.user._id);
+    }
+
+    res.status(201).json({ success: true, data: newScore, rankData });
   } catch (err) {
     console.error("Save score error:", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
-// ─── Get my scores + stats + skill analysis 
+// ── Helper: get current rank from the leaderboard aggregate ──────────
+async function getRankChange(userId) {
+  const leaderboard = await Score.aggregate([
+    {
+      $group: {
+        _id:          "$user",
+        totalCorrect: { $sum: "$score" },
+      },
+    },
+    {
+      $lookup: {
+        from: "users", localField: "_id", foreignField: "_id", as: "userInfo",
+      },
+    },
+    { $unwind: "$userInfo" },
+    { $match: { "userInfo.isPublic": { $ne: false } } },
+    { $sort: { totalCorrect: -1 } },
+  ]);
+
+  const idx = leaderboard.findIndex((u) => u._id.toString() === userId.toString());
+  return idx === -1 ? null : { rank: idx + 1, total: leaderboard.length };
+}
+
 const getMyScores = async (req, res) => {
   try {
     const scores = await Score.find({ user: req.user._id })
@@ -73,11 +109,15 @@ const getMyScores = async (req, res) => {
   }
 };
 
-// ─── Get all unique topics (for topic filter tabs) 
 const getTopics = async (req, res) => {
   try {
-    const topics = await Score.distinct("topic");
-    res.status(200).json({ success: true, data: topics.sort() });
+    const ranked = await Score.aggregate([
+      { $group: { _id: "$topic", attempts: { $sum: 1 } } },
+      { $sort: { attempts: -1, _id: 1 } },
+    ]);
+
+    const topics = ranked.map((t) => t._id);
+    res.status(200).json({ success: true, data: topics });
   } catch (err) {
     console.error("Get topics error:", err);
     res.status(500).json({ success: false, message: "Server error" });
@@ -87,7 +127,7 @@ const getTopics = async (req, res) => {
 // ─── Get leaderboard — overall or per topic 
 const getLeaderboard = async (req, res) => {
   try {
-    const { topic } = req.query; // ?topic=SQL  or omit for overall
+    const { topic } = req.query;
 
     const matchStage = topic && topic !== "overall"
       ? { $match: { topic } }
@@ -116,8 +156,6 @@ const getLeaderboard = async (req, res) => {
       },
       { $unwind: "$userInfo" },
       
-      // Exclude users who opted out of the public leaderboard. Default to
-      // showing users where isPublic was never set (legacy accounts).
       { $match: { "userInfo.isPublic": { $ne: false } } },
       {
         $project: {
