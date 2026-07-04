@@ -47,6 +47,12 @@ const userSchema = new mongoose.Schema(
     // ── Privacy 
     // Whether this user's username/scores appear on the public leaderboard.
     isPublic: { type: Boolean, default: true },
+
+    // ── Notification preferences 
+    notificationPrefs: {
+      dailyReminders:     { type: Boolean, default: false },
+      leaderboardUpdates: { type: Boolean, default: false },
+    },
   },
   { timestamps: true }
 );
