@@ -1,13 +1,12 @@
 require("dotenv").config();
 const mongoose = require("mongoose");
-const User     = require("../models/User");
+const User = require("../models/User");
 
 async function migrate() {
   await mongoose.connect(process.env.MONGO_URI);
-  console.log("Connected to MongoDB");
 
   const result = await User.updateMany(
-    { notificationPrefs: { $exists: false } },   // only users missing the field
+    { notificationPrefs: { $exists: false } },
     {
       $set: {
         notificationPrefs: {
@@ -18,7 +17,7 @@ async function migrate() {
     }
   );
 
-  console.log(`✅ Updated ${result.modifiedCount} users`);
+  // console.log(`✅ Updated ${result.modifiedCount} users`);
   await mongoose.disconnect();
 }
 

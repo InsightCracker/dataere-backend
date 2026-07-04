@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const User = require("../models/User");
-const { protect } = require("../middleware/authMiddleware");  // ← destructured
+const { protect } = require("../middleware/authMiddleware");
 
 router.patch("/", protect, async (req, res) => {
   const { key, value } = req.body;

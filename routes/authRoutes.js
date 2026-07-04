@@ -49,32 +49,4 @@ router.get("/github/callback",
   oauthCallbackHandler
 );
 
-router.put("/privacy", protect, async (req, res) => {
-  try {
-    const { isPublic } = req.body;
-
-    if (typeof isPublic !== "boolean") {
-      return res.status(400).json({
-        success: false,
-        message: "isPublic must be true or false",
-      });
-    }
-
-    const user = await User.findByIdAndUpdate(
-      req.user.id,
-      { isPublic },
-      { new: true, runValidators: true }
-    ).select("-password");
-
-    if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
-    }
-
-    res.json({ success: true, user });
-  } catch (err) {
-    console.error("Update privacy error:", err);
-    res.status(500).json({ success: false, message: "Failed to update privacy setting" });
-  }
-});
-
 module.exports = router;
