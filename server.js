@@ -7,6 +7,10 @@ const scoreRoutes = require("./routes/scoreRoutes");
 const passport = require("./config/passport");
 const dailyChallengeRoutes = require("./routes/dailyChallengeRoutes")
 const notifPrefRoutes = require("./routes/notificationPrefs");
+const datasetQuizRoutes = require("./routes/datasetQuiz");
+const subscriptionRoutes = require("./routes/subscription");
+const handlePaystackWebhook = require("./webhooks/paystackWebhook");
+const handleStripeWebhook = require("./webhooks/stripeWebhook");
 
 require("./jobs/dailyReminders");
 
@@ -24,15 +28,29 @@ app.use(cors({
   credentials: true,
 }));
 
+app.post(
+  "/api/webhooks/paystack",
+  express.raw({ type: "application/json" }),
+  handlePaystackWebhook
+);
+app.post(
+  "/api/webhooks/stripe",
+  express.raw({ type: "application/json" }),
+  handleStripeWebhook
+);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use(passport.initialize()); 
+app.use(passport.initialize());
 
 app.use("/api/auth",   authRoutes);
 app.use("/api/scores", scoreRoutes);
 app.use("/api/dailyChallenge", dailyChallengeRoutes);
 app.use("/api/user/notification-prefs", notifPrefRoutes);
+
+app.use("/api/dataset-quiz", datasetQuizRoutes);
+app.use("/api/subscription", subscriptionRoutes);
 
 app.get("/api/health", (req, res) => {
   res.json({ success: true, message: "DataEre API is running 🚀" });
