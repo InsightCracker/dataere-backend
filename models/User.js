@@ -1,5 +1,5 @@
 const mongoose = require("mongoose");
-const bcrypt   = require("bcryptjs");
+const bcrypt = require("bcryptjs");
 
 const userSchema = new mongoose.Schema(
   {
@@ -26,7 +26,7 @@ const userSchema = new mongoose.Schema(
       select: false,
     },
 
-    // ── OAuth identity 
+    // ── OAuth identity
     provider: {
       type: String,
       enum: ["local", "google", "github"],
@@ -39,19 +39,46 @@ const userSchema = new mongoose.Schema(
     resetPasswordToken:   { type: String, default: null },
     resetPasswordExpires: { type: Date,   default: null },
 
-    // ── Streak tracking 
+    // ── Streak tracking
     streak:        { type: Number, default: 0 },
     longestStreak: { type: Number, default: 0 },
     lastLoginDate: { type: Date,   default: null },
 
-    // ── Privacy 
-    // Whether this user's username/scores appear on the public leaderboard.
+    // ── Privacy
     isPublic: { type: Boolean, default: true },
 
-    // ── Notification preferences 
+    // ── Notification preferences
     notificationPrefs: {
       dailyReminders:     { type: Boolean, default: false },
       leaderboardUpdates: { type: Boolean, default: false },
+    },
+
+    // ── NEW: currency preference (drives which payment processor is used) ──
+    preferredCurrency: {
+      type: String,
+      enum: ["NGN", "USD", "INR"],
+      default: "NGN",
+    },
+
+    // ── NEW: Dataset Challenge usage + subscription state ──
+    datasetQuiz: {
+      freeQuizzesUsed: { type: Number, default: 0 },
+      freeQuizzesLimit: { type: Number, default: 3 },
+      lastResetAt: { type: Date, default: Date.now },
+
+      isSubscribed: { type: Boolean, default: false },
+      subscriptionExpiresAt: { type: Date, default: null },
+      subscriptionPlan: {
+        type: String,
+        enum: ["monthly", "quarterly", "yearly", null],
+        default: null,
+      },
+      paymentProcessor: {
+        type: String,
+        enum: ["paystack", "stripe", null],
+        default: null,
+      },
+      processorSubscriptionId: { type: String, default: null },
     },
   },
   { timestamps: true }
@@ -68,7 +95,7 @@ userSchema.methods.comparePassword = async function (enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
-// ── Streak logic (unchanged) 
+// ── Streak logic (unchanged)
 userSchema.methods.updateStreak = function () {
   const now   = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
