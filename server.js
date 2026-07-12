@@ -28,16 +28,16 @@ app.use(cors({
   credentials: true,
 }));
 
-app.post(
-  "/api/webhooks/paystack",
-  express.raw({ type: "application/json" }),
-  handlePaystackWebhook
-);
-app.post(
-  "/api/webhooks/stripe",
-  express.raw({ type: "application/json" }),
-  handleStripeWebhook
-);
+// app.post(
+//   "/api/webhooks/paystack",
+//   express.raw({ type: "application/json" }),
+//   handlePaystackWebhook
+// );
+// app.post(
+//   "/api/webhooks/stripe",
+//   express.raw({ type: "application/json" }),
+//   handleStripeWebhook
+// );
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -50,7 +50,7 @@ app.use("/api/dailyChallenge", dailyChallengeRoutes);
 app.use("/api/user/notification-prefs", notifPrefRoutes);
 
 app.use("/api/dataset-quiz", datasetQuizRoutes);
-app.use("/api/subscription", subscriptionRoutes);
+// app.use("/api/subscription", subscriptionRoutes);
 
 app.get("/api/health", (req, res) => {
   res.json({ success: true, message: "DataEre API is running 🚀" });
