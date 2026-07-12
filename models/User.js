@@ -43,6 +43,8 @@ const userSchema = new mongoose.Schema(
     streak:        { type: Number, default: 0 },
     longestStreak: { type: Number, default: 0 },
     lastLoginDate: { type: Date,   default: null },
+    
+    totalCorrect: { type: Number, default: 0 },
 
     // ── Privacy
     isPublic: { type: Boolean, default: true },
