@@ -6,7 +6,7 @@ const checkDatasetQuizAccess = require("../middleware/checkDatasetQuizAccess");
 const upload = require("../middleware/upload");
 const { getDatasetQuizAccess } = require("../utils/datasetQuizAccess");
 const { parseDatasetBuffer } = require("../services/datasetParser");
-const { generateDatasetQuestions } = require("../services/datasetQuizService");
+const { generateDatasetQuestions } = require("../services/datasetquizservice");
 const Dataset = require("../models/Dataset");
 const User = require("../models/User");
 
