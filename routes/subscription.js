@@ -2,7 +2,7 @@
 const express = require("express");
 const router = express.Router();
 const PricingPlan = require("../models/PricingPlan");
-const { protect } = require("../middleware/AuthMiddleware");
+const { protect } = require("../middleware/authMiddleware");
 const { initPaystackTransaction } = require("../services/paystackService");
 const { createStripeCheckoutSession } = require("../services/stripeService");
 
