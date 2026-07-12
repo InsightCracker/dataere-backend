@@ -1,7 +1,7 @@
 // routes/datasetQuiz.js
 const express = require("express");
 const router = express.Router();
-const { protect } = require("../middleware/AuthMiddleware");
+const { protect } = require("../middleware/authMiddleware");
 const checkDatasetQuizAccess = require("../middleware/checkDatasetQuizAccess");
 const upload = require("../middleware/upload");
 const { getDatasetQuizAccess } = require("../utils/datasetQuizAccess");
