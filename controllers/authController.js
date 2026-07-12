@@ -3,6 +3,7 @@ const User   = require("../models/User");
 const Score  = require("../models/Score");
 const { generateToken } = require("../utils/jwt");
 const { sendPasswordResetEmail } = require("../emails/emailService");
+const { serializeUser } = require("../utils/serializeUser");
 
 // ─── Register 
 const register = async (req, res) => {
@@ -26,16 +27,7 @@ const register = async (req, res) => {
       success: true,
       message: "Account created successfully",
       token,
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        streak: user.streak,
-        longestStreak: user.longestStreak,
-        joinDate: user.createdAt,
-        isPublic: user.isPublic,
-        notificationPrefs: user.notificationPrefs, 
-      },
+      user: serializeUser(user),
     });
   } catch (err) {
     console.error("Register error:", err);
@@ -57,11 +49,11 @@ const login = async (req, res) => {
     ).select("+password");
 
     if (!user || !(await user.comparePassword(password))) {
-    return res.status(401).json({
-      success: false,
-      message: "Invalid email or password"
-    });
-}
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password"
+      });
+    }
 
     // Update streak on login
     user.updateStreak();
@@ -72,16 +64,7 @@ const login = async (req, res) => {
       success: true,
       message: "Login successful",
       token,
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        streak: user.streak,
-        longestStreak: user.longestStreak,
-        joinDate: user.createdAt,
-        isPublic: user.isPublic,
-        notificationPrefs: user.notificationPrefs, 
-      },
+      user: serializeUser(user),
     });
   } catch (err) {
     console.error("Login error:", err);
@@ -98,16 +81,7 @@ const getMe = async (req, res) => {
     }
     res.status(200).json({
       success: true,
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        streak: user.streak,
-        longestStreak: user.longestStreak,
-        joinDate: user.createdAt,
-        isPublic: user.isPublic,
-        notificationPrefs: user.notificationPrefs, 
-      },
+      user: serializeUser(user),
     });
   } catch (err) {
     console.error("Get me error:", err);
@@ -145,16 +119,7 @@ const updateProfile = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Profile updated successfully",
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        streak: user.streak,
-        longestStreak: user.longestStreak,
-        joinDate: user.createdAt,
-        isPublic: user.isPublic,
-        notificationPrefs: user.notificationPrefs, 
-      },
+      user: serializeUser(user),
     });
   } catch (err) {
     console.error("Update profile error:", err);
@@ -184,7 +149,7 @@ const updatePrivacy = async (req, res) => {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
-    res.json({ success: true, user });
+    res.json({ success: true, user: serializeUser(user) });
   } catch (err) {
     console.error("Update privacy error:", err);
     res.status(500).json({ success: false, message: "Failed to update privacy setting" });

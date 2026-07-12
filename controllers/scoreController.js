@@ -1,5 +1,6 @@
 const Score = require("../models/Score");
 const User  = require("../models/User");
+const { serializeUser } = require("../utils/serializeUser");
 
 const saveScore = async (req, res) => {
   try {
@@ -25,6 +26,7 @@ const saveScore = async (req, res) => {
     const user = await User.findById(req.user._id);
     user.markActive();
     user.updateStreak();
+    user.totalCorrect = (user.totalCorrect ?? 0) + score;   // ← keep XP in sync with scores
     await user.save();
 
     // ── Calculate rank change for leaderboard notification ────────────
@@ -33,7 +35,12 @@ const saveScore = async (req, res) => {
       rankData = await getRankChange(req.user._id);
     }
 
-    res.status(201).json({ success: true, data: newScore, rankData });
+    res.status(201).json({
+      success: true,
+      data: newScore,
+      rankData,
+      user: serializeUser(user),   // ← lets the frontend sync AuthContext in one round trip
+    });
   } catch (err) {
     console.error("Save score error:", err);
     res.status(500).json({ success: false, message: "Server error" });
@@ -65,28 +72,55 @@ async function getRankChange(userId) {
 
 const getMyScores = async (req, res) => {
   try {
-    const scores = await Score.find({ user: req.user._id })
-      .sort({ createdAt: -1 })
-      .limit(50);
+    // Full all-time score history — no limit. The profile page shows
+    // everything the user has ever done, not just recent activity.
+    const allScores = await Score.find({ user: req.user._id })
+      .sort({ createdAt: -1 });
 
-    const total        = scores.length;
-    const avgScore     = total > 0 ? Math.round(scores.reduce((s, x) => s + x.percentage, 0) / total) : 0;
-    const bestScore    = total > 0 ? Math.max(...scores.map((s) => s.percentage)) : 0;
-    const totalCorrect = scores.reduce((s, x) => s + x.score, 0);
+    // Lifetime stats — aggregated over ALL of the user's scores, same
+    // semantics as getLeaderboard()'s aggregation, so the two numbers
+    // always agree regardless of how many quizzes the user has played.
+    const [agg] = await Score.aggregate([
+      { $match: { user: req.user._id } },
+      {
+        $group: {
+          _id:          "$user",
+          total:        { $sum: 1 },
+          totalCorrect: { $sum: "$score" },
+          avgScore:     { $avg: "$percentage" },
+          bestScore:    { $max: "$percentage" },
+        },
+      },
+    ]);
 
-    // Topic breakdown
-    const topicMap = {};
-    scores.forEach((s) => {
-      if (!topicMap[s.topic]) topicMap[s.topic] = { total: 0, count: 0 };
-      topicMap[s.topic].total += s.percentage;
-      topicMap[s.topic].count += 1;
-    });
+    const stats = agg
+      ? {
+          total:        agg.total,
+          avgScore:     Math.round(agg.avgScore),
+          bestScore:    agg.bestScore,
+          totalCorrect: agg.totalCorrect,
+        }
+      : { total: 0, avgScore: 0, bestScore: 0, totalCorrect: 0 };
 
-    const topicAverages = Object.entries(topicMap).map(([topic, data]) => ({
-      topic,
-      avgScore: Math.round(data.total / data.count),
-      attempts: data.count,
-    })).sort((a, b) => b.avgScore - a.avgScore);
+    // Topic breakdown — also aggregated over ALL scores, not just the
+    // recent 50, so "best/worst skill" isn't skewed by recency either.
+    const topicAgg = await Score.aggregate([
+      { $match: { user: req.user._id } },
+      {
+        $group: {
+          _id:      "$topic",
+          avgScore: { $avg: "$percentage" },
+          attempts: { $sum: 1 },
+        },
+      },
+      { $sort: { avgScore: -1 } },
+    ]);
+
+    const topicAverages = topicAgg.map((t) => ({
+      topic:    t._id,
+      avgScore: Math.round(t.avgScore),
+      attempts: t.attempts,
+    }));
 
     const bestSkill  = topicAverages[0] ?? null;
     const worstSkill = topicAverages.length > 1
@@ -96,8 +130,8 @@ const getMyScores = async (req, res) => {
     res.status(200).json({
       success: true,
       data: {
-        scores,
-        stats: { total, avgScore, bestScore, totalCorrect },
+        scores: allScores,
+        stats,
         topicAverages,
         bestSkill,
         worstSkill,
@@ -178,4 +212,50 @@ const getLeaderboard = async (req, res) => {
   }
 };
 
-module.exports = { saveScore, getMyScores, getLeaderboard, getTopics };
+// ─── Get the current user's rank + XP — always computed, regardless of
+// isPublic, and scoped to a topic if provided. Privacy only controls
+// whether OTHER people can see this user on the shared leaderboard; it
+// should never hide a user's own stats from themself.
+const getMyRank = async (req, res) => {
+  try {
+    const { topic } = req.query;
+    const matchStage = topic && topic !== "overall" ? { $match: { topic } } : null;
+
+    const pipeline = [
+      ...(matchStage ? [matchStage] : []),
+      {
+        $group: {
+          _id:          "$user",
+          totalCorrect: { $sum: "$score" },
+        },
+      },
+      { $sort: { totalCorrect: -1 } },
+    ];
+
+    const leaderboard = await Score.aggregate(pipeline);
+    const idx = leaderboard.findIndex(
+      (u) => u._id.toString() === req.user._id.toString()
+    );
+
+    if (idx === -1) {
+      return res.status(200).json({
+        success: true,
+        data: { rank: null, total: leaderboard.length, totalCorrect: 0 },
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        rank:         idx + 1,
+        total:        leaderboard.length,
+        totalCorrect: leaderboard[idx].totalCorrect,
+      },
+    });
+  } catch (err) {
+    console.error("Get my rank error:", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+module.exports = { saveScore, getMyScores, getLeaderboard, getTopics, getMyRank };
