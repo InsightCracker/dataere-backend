@@ -49,7 +49,7 @@ app.use("/api/scores", scoreRoutes);
 app.use("/api/dailyChallenge", dailyChallengeRoutes);
 app.use("/api/user/notification-prefs", notifPrefRoutes);
 
-app.use("/api/dataset-quiz", datasetQuizRoutes);
+// app.use("/api/dataset-quiz", datasetQuizRoutes);
 // app.use("/api/subscription", subscriptionRoutes);
 
 app.get("/api/health", (req, res) => {
