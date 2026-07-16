@@ -1,10 +1,8 @@
-// jobs/dailyReminders.js
 const cron = require("node-cron");
 const User = require("../models/User");
 const { sendDailyReminderEmail } = require("../emails/emailService.js");
 
-// Runs every day at 6pm
-cron.schedule("0 18 * * *", async () => {
+cron.schedule("0 12 * * *", async () => {
   console.log("⏰ Running daily reminder cron...");
 
   try {
@@ -26,7 +24,6 @@ cron.schedule("0 18 * * *", async () => {
         console.log(`✅ Reminder sent to ${user.email}`);
       } catch (err) {
         console.error(`❌ Failed to remind ${user.email}:`, err.message);
-        // don't rethrow — one failure shouldn't stop the rest
       }
     }
 
