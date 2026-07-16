@@ -14,10 +14,8 @@ passport.use(
       try {
         const email = profile.emails?.[0]?.value;
 
-        // 1. Already linked to this Google account
         let user = await User.findOne({ googleId: profile.id });
 
-        // 2. Existing email-based account -> link it
         if (!user && email) {
           user = await User.findOne({ email });
           if (user) {
@@ -27,7 +25,6 @@ passport.use(
           }
         }
 
-        // 3. Brand new user
         if (!user) {
           user = await User.create({
             username: profile.displayName || email?.split("@")[0] || `user_${profile.id}`,
