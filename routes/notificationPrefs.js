@@ -15,7 +15,7 @@ router.patch("/", protect, async (req, res) => {
     const user = await User.findByIdAndUpdate(
       req.user._id,
       { $set: { [`notificationPrefs.${key}`]: value } },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     res.json({
