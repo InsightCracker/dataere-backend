@@ -1,10 +1,10 @@
 const { Resend } = require("resend");
 
-const sendPasswordResetEmail = async (toEmail, resetURL, username) => {
-  const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = new Resend(process.env.RESEND_API_KEY);
 
+const sendPasswordResetEmail = async (toEmail, resetURL, username) => {
   const { data, error } = await resend.emails.send({
-    from: "DataEre <onboarding@resend.dev>",
+    from: "DataEre <noreply@dataxo.cfd>",
     to: toEmail,
     subject: "Reset your DataEre password",
     html: `
@@ -85,10 +85,56 @@ const sendPasswordResetEmail = async (toEmail, resetURL, username) => {
 };
 
 const sendDailyReminderEmail = async (toEmail, username, currentStreak) => {
+  const hasStreak = currentStreak > 0;
+
+  const subject = hasStreak
+    ? `Your ${currentStreak}-day streak is waiting 🔥`
+    : `Start your streak today, ${username}!`;
+
+  const streakBadgeHtml = hasStreak
+    ? `
+      <table cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+        <tr>
+          <td style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:16px 24px;text-align:center;">
+            <p style="margin:0;font-size:36px;">🔥</p>
+            <p style="margin:4px 0 0;font-size:22px;font-weight:800;color:#ea580c;">
+              ${currentStreak} day streak
+            </p>
+            <p style="margin:4px 0 0;font-size:13px;color:#9a3412;">
+              Don't let it reset to zero
+            </p>
+          </td>
+        </tr>
+      </table>`
+    : `
+      <table cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+        <tr>
+          <td style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:12px;padding:16px 24px;text-align:center;">
+            <p style="margin:0;font-size:36px;">✨</p>
+            <p style="margin:4px 0 0;font-size:22px;font-weight:800;color:#2251cc;">
+              No streak yet
+            </p>
+            <p style="margin:4px 0 0;font-size:13px;color:#1e3a8a;">
+              Practice today to start one
+            </p>
+          </td>
+        </tr>
+      </table>`;
+
+  const heading = hasStreak
+    ? `Hey ${username}, practice today!`
+    : `Hey ${username}, let's get the streak started!`;
+
+  const bodyText = hasStreak
+    ? `You haven't practised on DataEre today. It only takes a few minutes to keep your streak alive and climb the leaderboard.`
+    : `You haven't started a practice streak yet. Jump in today. It only takes a few minutes to get going and climb the leaderboard.`;
+
+  const ctaText = hasStreak ? "Get In Today →" : "Start Your Streak →";
+
   const { data, error } = await resend.emails.send({
-    from: "DataEre <onboarding@resend.dev>",
+    from: "DataEre <noreply@dataxo.cfd>",
     to: toEmail,
-    subject: `Your ${currentStreak}-day streak is waiting 🔥`,
+    subject,
     html: `
       <!DOCTYPE html>
       <html>
@@ -104,7 +150,7 @@ const sendDailyReminderEmail = async (toEmail, username, currentStreak) => {
                 <table width="480" cellpadding="0" cellspacing="0"
                   style="background:#ffffff;border-radius:20px;overflow:hidden;
                   box-shadow:0 8px 40px rgba(59,110,240,0.10);">
-                  
+
                   <!-- Top accent bar -->
                   <tr>
                     <td style="height:4px;background:linear-gradient(90deg,#2251cc,#3b6ef0,#6b96f5);"></td>
@@ -120,27 +166,14 @@ const sendDailyReminderEmail = async (toEmail, username, currentStreak) => {
                       </p>
 
                       <!-- Streak badge -->
-                      <table cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
-                        <tr>
-                          <td style="background:#fff7ed;border:1px solid #fed7aa;border-radius:12px;padding:16px 24px;text-align:center;">
-                            <p style="margin:0;font-size:36px;">🔥</p>
-                            <p style="margin:4px 0 0;font-size:22px;font-weight:800;color:#ea580c;">
-                              ${currentStreak} day streak
-                            </p>
-                            <p style="margin:4px 0 0;font-size:13px;color:#9a3412;">
-                              Don't let it reset to zero
-                            </p>
-                          </td>
-                        </tr>
-                      </table>
+                      ${streakBadgeHtml}
 
                       <!-- Heading + body -->
                       <p style="margin:0 0 8px;font-size:22px;font-weight:700;color:#111827;">
-                        Hey ${username}, practice today!
+                        ${heading}
                       </p>
                       <p style="margin:0 0 24px;font-size:15px;color:#4b5563;line-height:1.6;">
-                        You haven't practised on DataEre today. It only takes a few minutes to
-                        keep your streak alive and climb the leaderboard.
+                        ${bodyText}
                       </p>
 
                       <!-- CTA button -->
@@ -150,7 +183,7 @@ const sendDailyReminderEmail = async (toEmail, username, currentStreak) => {
                             <a href="https://dataxo.cfd"
                               style="display:inline-block;padding:14px 32px;color:#ffffff;
                               font-size:15px;font-weight:700;text-decoration:none;border-radius:12px;">
-                              Get In Today →
+                              ${ctaText}
                             </a>
                           </td>
                         </tr>
@@ -162,7 +195,7 @@ const sendDailyReminderEmail = async (toEmail, username, currentStreak) => {
                       <p style="margin:0;font-size:13px;color:#9ca3af;line-height:1.6;">
                         You're receiving this because you enabled daily reminders in your
                         DataEre settings. You can turn them off anytime under
-                        <a href="https://dataxo.cfd/settings?tab=notif"
+                        <a href="https://dataxo.cfd/users/login"
                           style="color:#3b6ef0;text-decoration:none;">Notification Settings</a>.
                       </p>
                     </td>
