@@ -1,6 +1,6 @@
 const crypto = require("crypto");
-const User   = require("../models/User");
-const Score  = require("../models/Score");
+const User = require("../models/User");
+const Score = require("../models/Score");
 const { generateToken } = require("../utils/jwt");
 const { sendPasswordResetEmail } = require("../emails/emailService");
 const { serializeUser } = require("../utils/serializeUser");
@@ -113,7 +113,7 @@ const updateProfile = async (req, res) => {
     const user = await User.findByIdAndUpdate(
       req.user._id,
       updates,
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     );
 
     res.status(200).json({
@@ -142,7 +142,7 @@ const updatePrivacy = async (req, res) => {
     const user = await User.findByIdAndUpdate(
       req.user.id,
       { isPublic },
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     ).select("-password");
 
     if (!user) {

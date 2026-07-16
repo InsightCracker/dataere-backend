@@ -11,35 +11,56 @@ const saveScore = async (req, res) => {
 
     const percentage = Math.round((score / total) * 100);
     const newScore = await Score.create({
-      user:     req.user._id,
+      user: req.user._id,
       username: req.user.username,
       topic,
       score,
       total,
-      wrong:    wrong   ?? 0,
-      skipped:  skipped ?? 0,
+      wrong: wrong   ?? 0,
+      skipped: skipped ?? 0,
       percentage,
-      mode:     mode ?? "solo",
+      mode: mode ?? "solo",
     });
 
-    // ── Mark user active for daily reminder cron ──────────────────────
     const user = await User.findById(req.user._id);
-    user.markActive();
     user.updateStreak();
-    user.totalCorrect = (user.totalCorrect ?? 0) + score;   // ← keep XP in sync with scores
-    await user.save();
+    user.totalCorrect = (user.totalCorrect ?? 0) + score;
 
-    // ── Calculate rank change for leaderboard notification ────────────
     let rankData = null;
+    let rankNotification = null;
+
     if (user.notificationPrefs?.leaderboardUpdates && user.isPublic) {
       rankData = await getRankChange(req.user._id);
+
+      if (rankData) {
+        const oldRank = user.lastRank;
+        const newRank = rankData.rank;
+
+        if (oldRank != null && newRank !== oldRank) {
+          const direction = newRank < oldRank ? "up" : "down";
+          rankNotification = {
+            direction,
+            oldRank,
+            newRank,
+            message:
+              direction === "up"
+                ? `You climbed to rank #${newRank}! 🎉`
+                : `You dropped to rank #${newRank}.`,
+          };
+        }
+
+        user.lastRank = newRank;
+      }
     }
+
+    await user.save();
 
     res.status(201).json({
       success: true,
       data: newScore,
       rankData,
-      user: serializeUser(user),   // ← lets the frontend sync AuthContext in one round trip
+      rankNotification, // ← frontend shows a toast if this isn't null
+      user: serializeUser(user),
     });
   } catch (err) {
     console.error("Save score error:", err);
@@ -47,12 +68,12 @@ const saveScore = async (req, res) => {
   }
 };
 
-// ── Helper: get current rank from the leaderboard aggregate ──────────
+// ── Helper: get current rank from the leaderboard aggregate
 async function getRankChange(userId) {
   const leaderboard = await Score.aggregate([
     {
       $group: {
-        _id:          "$user",
+        _id: "$user",
         totalCorrect: { $sum: "$score" },
       },
     },
@@ -72,14 +93,9 @@ async function getRankChange(userId) {
 
 const getMyScores = async (req, res) => {
   try {
-    // Full all-time score history — no limit. The profile page shows
-    // everything the user has ever done, not just recent activity.
     const allScores = await Score.find({ user: req.user._id })
       .sort({ createdAt: -1 });
 
-    // Lifetime stats — aggregated over ALL of the user's scores, same
-    // semantics as getLeaderboard()'s aggregation, so the two numbers
-    // always agree regardless of how many quizzes the user has played.
     const [agg] = await Score.aggregate([
       { $match: { user: req.user._id } },
       {
@@ -102,8 +118,6 @@ const getMyScores = async (req, res) => {
         }
       : { total: 0, avgScore: 0, bestScore: 0, totalCorrect: 0 };
 
-    // Topic breakdown — also aggregated over ALL scores, not just the
-    // recent 50, so "best/worst skill" isn't skewed by recency either.
     const topicAgg = await Score.aggregate([
       { $match: { user: req.user._id } },
       {
@@ -168,41 +182,38 @@ const getLeaderboard = async (req, res) => {
       : null;
 
     const pipeline = [
-      ...(matchStage ? [matchStage] : []),
-      {
-        $group: {
-          _id:          "$user",
-          username:     { $first: "$username" },
-          avgScore:     { $avg: "$percentage" },
-          bestScore:    { $max: "$percentage" },
-          totalQuizzes: { $sum: 1 },
-          totalCorrect: { $sum: "$score" },
-        },
-      },
-      
-      {
-        $lookup: {
-          from: "users",
-          localField: "_id",
-          foreignField: "_id",
-          as: "userInfo",
-        },
-      },
-      { $unwind: "$userInfo" },
-      
-      { $match: { "userInfo.isPublic": { $ne: false } } },
-      {
-        $project: {
-          username:     1,
-          avgScore:     { $round: ["$avgScore", 1] },
-          bestScore:    1,
-          totalQuizzes: 1,
-          totalCorrect: 1,
-        },
-      },
-      { $sort: { totalCorrect: -1 } },
-      { $limit: 50 },
-    ];
+  ...(matchStage ? [matchStage] : []),
+  {
+    $group: {
+      _id:          "$user",
+      avgScore:     { $avg: "$percentage" },
+      bestScore:    { $max: "$percentage" },
+      totalQuizzes: { $sum: 1 },
+      totalCorrect: { $sum: "$score" },
+    },
+  },
+  {
+    $lookup: {
+      from: "users",
+      localField: "_id",
+      foreignField: "_id",
+      as: "userInfo",
+    },
+  },
+  { $unwind: "$userInfo" },
+  { $match: { "userInfo.isPublic": { $ne: false } } },
+  {
+    $project: {
+      username:     "$userInfo.username", // ← live username goes here, not in $group
+      avgScore:     { $round: ["$avgScore", 1] },
+      bestScore:    1,
+      totalQuizzes: 1,
+      totalCorrect: 1,
+    },
+  },
+  { $sort: { totalCorrect: -1 } },
+  { $limit: 50 },
+];
 
     const leaderboard = await Score.aggregate(pipeline);
     res.status(200).json({ success: true, data: leaderboard });
