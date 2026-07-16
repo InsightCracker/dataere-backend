@@ -40,9 +40,10 @@ const userSchema = new mongoose.Schema(
     resetPasswordExpires: { type: Date,   default: null },
 
     // ── Streak tracking
-    streak:        { type: Number, default: 0 },
+    streak: { type: Number, default: 0 },
     longestStreak: { type: Number, default: 0 },
     lastLoginDate: { type: Date,   default: null },
+    lastRank: { type: Number, default: null },
     
     totalCorrect: { type: Number, default: 0 },
 
